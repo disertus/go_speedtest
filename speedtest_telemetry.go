@@ -125,8 +125,8 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Println("Successfully connected!")
-		fmt.Println("Sleeping for 20 secs")
+		fmt.Println("Successfully written the results to the database")
+		fmt.Println("Sleeping for 30 minutes")
 		time.Sleep(1800 * time.Second)
 	}
 
