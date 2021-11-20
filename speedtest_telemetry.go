@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	_ "github.com/lib/pq"
@@ -56,11 +58,14 @@ const (
 	host     = "localhost"
 	port     = 5432
 	user     = USER
-	password = PASS
-	dbname   = DBNAME
+	password = PASSWORD
+	dbname   = DB_NAME
 )
 
-func insertIntoDB(db *sql.DB, data Speedtest) {
+func InsertResultIntoDB(db *sql.DB, data Speedtest) {
+
+	// todo: implement a logger writing to an external file
+
 	sqlStatement := `
 			INSERT INTO speedtests (id, created_at, type, jitter, latency, download_bandwidth, download_bytes, download_elapsed,
 				upload_bandwidth, upload_bytes, upload_elapsed, packet_loss, isp, internal_id, interface_name, mac_address, is_vpn,
@@ -69,7 +74,7 @@ func insertIntoDB(db *sql.DB, data Speedtest) {
 
 	_, err := db.Exec(sqlStatement, data.Result.Id, data.Timestamp, data.Type, data.Ping.Jitter, data.Ping.Latency,
 		data.Download.Bandwidth, data.Download.Bytes, data.Download.Elapsed, data.Upload.Bandwidth, data.Upload.Bytes,
-		data.Upload.Elapsed, data.PacketLoss, data.Isp, data.Interface.InternalIp, data.Interface.Name, data.Interface.MacAddr,
+		data.Upload.Elapsed, data.PacketLoss, data.Isp, data.Interface.InternalIp, data.Interface.Name, EncryptStringToMD5(data.Interface.MacAddr),
 		data.Interface.IsVpn, data.Interface.ExternalIp, data.Server.Id, data.Server.Name, data.Server.Location, data.Server.Country,
 		data.Server.Host, data.Server.Port, data.Server.Ip, data.Result.Url)
 	if err != nil {
@@ -79,29 +84,35 @@ func insertIntoDB(db *sql.DB, data Speedtest) {
 	return
 }
 
-func runSpeedtest(path string) []byte {
+func EncryptStringToMD5(mac_address string) string {
+	stringToBytes := []byte(mac_address)
+	hashedString := md5.Sum(stringToBytes)
+	return hex.EncodeToString(hashedString[:]) // convert byte array to slice since it's impossible to stringify a byte array
+}
+
+func RunSpeedtest(path string) []byte {
 	output, err := exec.Command(path+"/speedtest", "-f", "json-pretty").Output()
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Fatal(err)
 	}
 	return output
 }
 
 func scheduleSpeedtest() {
-	panic("Not implemented")
+	fmt.Println("Not implemented")
 }
 
 func main() {
 	for {
+		fmt.Println("Running a speedtest at ", time.Now().String())
+
 		path, err := os.Getwd()
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		var output []byte
-		output = runSpeedtest(path)
-
-		fmt.Println(string(output))
+		output = RunSpeedtest(path)
 
 		var data Speedtest
 		err = json.Unmarshal(output, &data)
@@ -119,15 +130,16 @@ func main() {
 
 		defer db.Close()
 
-		insertIntoDB(db, data)
+		InsertResultIntoDB(db, data)
 
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Println("Successfully written the results to the database")
-		fmt.Println("Sleeping for 30 minutes")
-		time.Sleep(1800 * time.Second)
+		fmt.Println("Successfully inserted the speedtest results into the db")
+		fmt.Println("Sleeping for 15 minutes")
+
+		time.Sleep(900 * time.Second)
 	}
 
 }
