@@ -63,9 +63,6 @@ const (
 )
 
 func InsertResultIntoDB(db *sql.DB, data Speedtest) {
-
-	// todo: implement a logger writing to an external file
-
 	sqlStatement := `
 			INSERT INTO speedtests (id, created_at, type, jitter, latency, download_bandwidth, download_bytes, download_elapsed,
 				upload_bandwidth, upload_bytes, upload_elapsed, packet_loss, isp, internal_id, interface_name, mac_address, is_vpn,
@@ -78,7 +75,7 @@ func InsertResultIntoDB(db *sql.DB, data Speedtest) {
 		data.Interface.IsVpn, data.Interface.ExternalIp, data.Server.Id, data.Server.Name, data.Server.Location, data.Server.Country,
 		data.Server.Host, data.Server.Port, data.Server.Ip, data.Result.Url)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to insert data into the database: %s", err.Error())
 	}
 
 	return
@@ -93,23 +90,26 @@ func EncryptStringToMD5(mac_address string) string {
 func RunSpeedtest(path string) []byte {
 	output, err := exec.Command(path+"/speedtest", "-f", "json-pretty").Output()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to run a command: %s", err.Error())
 	}
 	return output
 }
 
 func scheduleSpeedtest() {
-	fmt.Println("Not implemented")
+	panic("Not implemented")
 }
 
 func main() {
+	path, err := os.Getwd()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	file, err := os.OpenFile("logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	log.SetOutput(file)
+
 	for {
 		fmt.Println("Running a speedtest at ", time.Now().String())
-
-		path, err := os.Getwd()
-		if err != nil {
-			fmt.Println(err)
-		}
 
 		var output []byte
 		output = RunSpeedtest(path)
@@ -117,7 +117,7 @@ func main() {
 		var data Speedtest
 		err = json.Unmarshal(output, &data)
 		if err != nil {
-			log.Fatalf("Error occurred while unmarshalling: %s", err.Error())
+			log.Fatalf("Failed to unmarshal json: %s", err.Error())
 		}
 
 		psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
@@ -125,16 +125,12 @@ func main() {
 			host, port, user, password, dbname)
 		db, err := sql.Open("postgres", psqlInfo)
 		if err != nil {
-			panic(err)
+			log.Fatalf("Failed to establish a database connection: %s", err.Error())
 		}
 
 		defer db.Close()
 
 		InsertResultIntoDB(db, data)
-
-		if err != nil {
-			panic(err)
-		}
 
 		fmt.Println("Successfully inserted the speedtest results into the db")
 		fmt.Println("Sleeping for 15 minutes")
