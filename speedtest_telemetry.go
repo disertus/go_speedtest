@@ -128,9 +128,9 @@ func main() {
 			log.Fatalf("Failed to establish a database connection: %s", err.Error())
 		}
 
-		defer db.Close()
-
 		InsertResultIntoDB(db, data)
+		
+		db.Close()
 
 		fmt.Println("Successfully inserted the speedtest results into the db")
 		fmt.Println("Sleeping for 15 minutes")
