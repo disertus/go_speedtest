@@ -13,7 +13,7 @@ type Schedule struct{
 
 
 // todo: add mac-address parameter to the /schedule endpoint
-// todo: create a dummy schedule for the local client to fetch
+// todo: create some dummy schedules for the local client to fetch
 // todo: lay out some logic for future schedules
 
 func main() {
